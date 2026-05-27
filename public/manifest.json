@@ -1,0 +1,14 @@
+{
+  "name": "Pedido Pronto",
+  "short_name": "Pedido Pronto",
+  "description": "Notificação instantânea quando seu pedido estiver pronto",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0F6E56",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
