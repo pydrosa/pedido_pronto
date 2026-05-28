@@ -65,7 +65,10 @@ export function useOrders() {
   }, [establishment])
 
   const createOrder = async (input: CreateOrderInput): Promise<Order | null> => {
-    if (!establishment) return null
+    if (!establishment) {
+      toast.error('Estabelecimento nao encontrado. Saia e entre novamente na conta.')
+      return null
+    }
 
     const check = canCreateOrder()
     if (!check.allowed) {
@@ -74,35 +77,26 @@ export function useOrders() {
     }
 
     const { data, error } = await supabase
-      .from('orders')
-      .insert({
-        establishment_id: establishment.id,
-        order_number: input.order_number.trim(),
-        customer_name: input.customer_name.trim(),
-        status: 'waiting',
+      .rpc('create_order_for_current_establishment', {
+        p_customer_name: input.customer_name.trim(),
       })
-      .select()
-      .single()
 
     if (error) {
-      toast.error('Erro ao criar pedido')
+      console.error('[Orders] Erro ao criar pedido:', error)
+      toast.error(error.message || 'Erro ao criar pedido')
       return null
     }
-
-    // Increment monthly counter
-    await supabase
-      .from('establishments')
-      .update({ orders_this_month: establishment.orders_this_month + 1 })
-      .eq('id', establishment.id)
 
     return data as Order
   }
 
   const markReady = async (orderId: string): Promise<boolean> => {
-    const { error } = await supabase
+    const { data: updatedOrder, error } = await supabase
       .from('orders')
       .update({ status: 'ready' as OrderStatus, ready_at: new Date().toISOString() })
       .eq('id', orderId)
+      .select()
+      .single()
 
     if (error) {
       toast.error('Erro ao atualizar pedido')
@@ -110,11 +104,31 @@ export function useOrders() {
     }
 
     // Trigger push notification via Edge Function
-    const order = orders.find((o) => o.id === orderId)
+    const order = updatedOrder as Order
     if (order?.push_subscription) {
-      await supabase.functions.invoke('send-push', {
-        body: { orderId, subscription: order.push_subscription },
+      const { data: pushResult, error: pushError } = await supabase.functions.invoke('send-push', {
+        body: {
+          orderId,
+          subscription: order.push_subscription,
+          customerName: order.customer_name,
+          orderNumber: order.order_number,
+        },
       })
+
+      if (pushError) {
+        console.error('[Push] Erro ao enviar notificacao:', pushError)
+        toast.error(`Pedido pronto, mas a notificacao push falhou: ${pushError.message}`)
+        return true
+      }
+
+      if (pushResult && pushResult.ok === false) {
+        console.error('[Push] Falha retornada pela funcao:', pushResult)
+        toast.error(`Pedido pronto, mas a notificacao push falhou: ${pushResult.error || 'erro desconhecido'}`)
+        return true
+      }
+    } else {
+      console.warn('[Push] Pedido sem push_subscription:', orderId)
+      toast('Pedido pronto. O cliente nao ativou notificacao push.')
     }
 
     toast.success('Cliente notificado!')

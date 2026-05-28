@@ -8,11 +8,19 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
   return Uint8Array.from([...rawData].map((char) => char.charCodeAt(0)))
 }
 
+function buffersEqual(left: ArrayBuffer | null, right: Uint8Array): boolean {
+  if (!left) return false
+  const leftBytes = new Uint8Array(left)
+  if (leftBytes.length !== right.length) return false
+  return leftBytes.every((byte, index) => byte === right[index])
+}
+
 export async function registerServiceWorker(): Promise<ServiceWorkerRegistration | null> {
   if (!('serviceWorker' in navigator)) return null
   try {
     const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' })
     await navigator.serviceWorker.ready
+    await reg.update()
     return reg
   } catch (err) {
     console.error('[SW] Falha ao registrar:', err)
@@ -34,12 +42,17 @@ export async function subscribeToPush(): Promise<PushSubscription | null> {
     const reg = await registerServiceWorker()
     if (!reg) return null
 
+    const applicationServerKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
     const existing = await reg.pushManager.getSubscription()
-    if (existing) return existing
+    if (existing) {
+      const existingKey = existing.options.applicationServerKey ?? null
+      if (buffersEqual(existingKey, applicationServerKey)) return existing
+      await existing.unsubscribe()
+    }
 
     const subscription = await reg.pushManager.subscribe({
       userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+      applicationServerKey: applicationServerKey as BufferSource,
     })
 
     return subscription

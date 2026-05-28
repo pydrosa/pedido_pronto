@@ -31,7 +31,6 @@ export interface Order {
 // ─── UI / App types ───────────────────────────────────────────────────────────
 
 export interface CreateOrderInput {
-  order_number: string
   customer_name: string
 }
 

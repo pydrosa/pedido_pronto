@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { QrCode, CheckCircle, Copy, RotateCcw, ArrowLeft } from 'lucide-react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { useOrders } from '@/hooks/useOrders'
 import { generateQRCodeDataURL, getOrderUrl } from '@/lib/qrcode'
 import { Order } from '@/types'
@@ -9,20 +9,26 @@ import toast from 'react-hot-toast'
 export default function NewOrderPage() {
   const { createOrder, markReady } = useOrders()
   const navigate = useNavigate()
-  const [form, setForm] = useState({ order_number: '', customer_name: '' })
+  const [form, setForm] = useState({ customer_name: '' })
   const [loading, setLoading] = useState(false)
   const [createdOrder, setCreatedOrder] = useState<Order | null>(null)
   const [qrDataUrl, setQrDataUrl] = useState('')
 
   useEffect(() => {
     if (createdOrder) {
-      generateQRCodeDataURL(createdOrder.id).then(setQrDataUrl)
+      setQrDataUrl('')
+      generateQRCodeDataURL(createdOrder.id)
+        .then(setQrDataUrl)
+        .catch((error) => {
+          console.error('[QR] Erro ao gerar QR Code:', error)
+          toast.error('Pedido criado, mas o QR Code nao foi gerado.')
+        })
     }
   }, [createdOrder])
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!form.order_number || !form.customer_name) return
+    if (!form.customer_name) return
     setLoading(true)
     const order = await createOrder(form)
     setLoading(false)
@@ -39,7 +45,7 @@ export default function NewOrderPage() {
   const handleReset = () => {
     setCreatedOrder(null)
     setQrDataUrl('')
-    setForm({ order_number: '', customer_name: '' })
+    setForm({ customer_name: '' })
   }
 
   const copyLink = () => {
@@ -61,7 +67,6 @@ export default function NewOrderPage() {
           </div>
         </div>
 
-        {/* QR Card */}
         <div className="card p-6 flex flex-col items-center">
           {qrDataUrl ? (
             <img
@@ -80,12 +85,11 @@ export default function NewOrderPage() {
 
           <div className="mt-4 w-full bg-brand-50 rounded-xl p-3 text-center">
             <p className="text-xs text-brand-600 font-medium">
-              Cliente escaneia e aguarda a notificação
+              Cliente escaneia e aguarda a notificacao
             </p>
           </div>
         </div>
 
-        {/* Actions */}
         <button
           onClick={handleMarkReady}
           className="btn-primary w-full py-3.5 text-base"
@@ -112,7 +116,7 @@ export default function NewOrderPage() {
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Novo pedido</h1>
         <p className="text-gray-400 text-sm mt-0.5">
-          Preencha os dados e gere o QR Code
+          Informe o cliente e gere o QR Code
         </p>
       </div>
 
@@ -120,36 +124,28 @@ export default function NewOrderPage() {
         <form onSubmit={handleCreate} className="space-y-5">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              Número do pedido
-            </label>
-            <input
-              type="text"
-              className="input"
-              placeholder="Ex: 042, A-15, Mesa 7..."
-              value={form.order_number}
-              onChange={(e) => setForm((f) => ({ ...f, order_number: e.target.value }))}
-              required
-              autoFocus
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">
               Nome do cliente
             </label>
             <input
               type="text"
               className="input"
-              placeholder="Ex: João Silva"
+              placeholder="Ex: Joao Silva"
               value={form.customer_name}
               onChange={(e) => setForm((f) => ({ ...f, customer_name: e.target.value }))}
               required
+              autoFocus
             />
+          </div>
+
+          <div className="rounded-xl border border-gray-100 bg-gray-50 p-3">
+            <p className="text-xs text-gray-500 leading-relaxed">
+              O numero do pedido sera gerado automaticamente em sequencia.
+            </p>
           </div>
 
           <button
             type="submit"
-            disabled={loading || !form.order_number || !form.customer_name}
+            disabled={loading || !form.customer_name}
             className="btn-primary w-full py-3.5 text-base"
           >
             {loading ? (
@@ -169,9 +165,9 @@ export default function NewOrderPage() {
 
       <div className="mt-4 p-4 bg-gray-50 rounded-xl border border-gray-100">
         <p className="text-xs text-gray-500 leading-relaxed">
-          <strong className="text-gray-700">Como funciona:</strong> após gerar o QR Code,
-          mostre ao cliente. Ele escaneia com o celular e recebe uma notificação
-          assim que você marcar o pedido como pronto.
+          <strong className="text-gray-700">Como funciona:</strong> apos gerar o QR Code,
+          mostre ao cliente. Ele escaneia com o celular e recebe uma notificacao
+          assim que voce marcar o pedido como pronto.
         </p>
       </div>
     </div>

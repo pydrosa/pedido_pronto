@@ -22,31 +22,85 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [establishment, setEstablishment] = useState<Establishment | null>(null)
   const [loading, setLoading] = useState(true)
 
-  async function fetchEstablishment(userId: string) {
-    const { data } = await supabase
+  async function ensureEstablishment(currentUser: User): Promise<Establishment | null> {
+    const { data, error } = await supabase
       .from('establishments')
       .select('*')
-      .eq('owner_id', userId)
+      .eq('owner_id', currentUser.id)
+      .maybeSingle()
+
+    if (data) {
+      const currentEstablishment = data as Establishment
+      setEstablishment(currentEstablishment)
+      return currentEstablishment
+    }
+
+    if (error) {
+      console.error('[Auth] Erro ao buscar estabelecimento:', error)
+      return null
+    }
+
+    const fallbackName =
+      (currentUser.user_metadata?.establishment_name as string | undefined)?.trim() ||
+      (currentUser.user_metadata?.name as string | undefined)?.trim() ||
+      currentUser.email?.split('@')[0] ||
+      'Meu estabelecimento'
+
+    const { data: created, error: insertError } = await supabase
+      .from('establishments')
+      .insert({
+        owner_id: currentUser.id,
+        name: fallbackName,
+        email: currentUser.email ?? '',
+        plan: 'free',
+        orders_this_month: 0,
+      })
+      .select()
       .single()
-    if (data) setEstablishment(data as Establishment)
+
+    if (insertError) {
+      console.error('[Auth] Erro ao criar estabelecimento:', insertError)
+
+      const { data: existing } = await supabase
+        .from('establishments')
+        .select('*')
+        .eq('owner_id', currentUser.id)
+        .maybeSingle()
+
+      if (existing) {
+        const currentEstablishment = existing as Establishment
+        setEstablishment(currentEstablishment)
+        return currentEstablishment
+      }
+
+      return null
+    }
+
+    const currentEstablishment = created as Establishment
+    setEstablishment(currentEstablishment)
+    return currentEstablishment
+  }
+
+  async function fetchEstablishment(currentUser: User) {
+    await ensureEstablishment(currentUser)
   }
 
   async function refreshEstablishment() {
-    if (user) await fetchEstablishment(user.id)
+    if (user) await fetchEstablishment(user)
   }
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session)
       setUser(session?.user ?? null)
-      if (session?.user) fetchEstablishment(session.user.id).finally(() => setLoading(false))
+      if (session?.user) fetchEstablishment(session.user).finally(() => setLoading(false))
       else setLoading(false)
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session)
       setUser(session?.user ?? null)
-      if (session?.user) fetchEstablishment(session.user.id)
+      if (session?.user) fetchEstablishment(session.user)
       else setEstablishment(null)
     })
 
@@ -59,20 +113,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const signUp = async (email: string, password: string, name: string) => {
-    const { data, error } = await supabase.auth.signUp({ email, password })
-    if (error) return { error: error.message }
-    if (!data.user) return { error: 'Erro ao criar usuário' }
-
-    // Create establishment record
-    const { error: estError } = await supabase.from('establishments').insert({
-      owner_id: data.user.id,
-      name,
+    const { data, error } = await supabase.auth.signUp({
       email,
-      plan: 'free',
-      orders_this_month: 0,
+      password,
+      options: {
+        data: {
+          establishment_name: name,
+          name,
+        },
+      },
     })
 
-    return { error: estError?.message ?? null }
+    if (error) return { error: error.message }
+    if (!data.user) return { error: 'Erro ao criar usuario' }
+    if (!data.session) {
+      return {
+        error: 'Conta criada, mas o login imediato nao foi liberado. Verifique a confirmacao de e-mail no Supabase.',
+      }
+    }
+
+    const currentEstablishment = await ensureEstablishment(data.user)
+    return { error: currentEstablishment ? null : 'Conta criada, mas nao foi possivel criar o estabelecimento.' }
   }
 
   const signOut = async () => {

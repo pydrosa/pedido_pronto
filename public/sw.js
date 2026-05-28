@@ -1,7 +1,7 @@
 /* Service Worker — Pedido Pronto
    Handles background Web Push notifications */
 
-const CACHE_NAME = 'pedido-pronto-v1'
+const CACHE_NAME = 'pedido-pronto-v2'
 const STATIC_ASSETS = ['/', '/index.html']
 
 // ── Install ──────────────────────────────────────────────────────────────────
@@ -40,8 +40,8 @@ self.addEventListener('push', (event) => {
 
   const options = {
     body: data.body,
-    icon: '/icons/icon-192.png',
-    badge: '/icons/icon-192.png',
+    icon: '/icon.svg',
+    badge: '/icon.svg',
     vibrate: [200, 100, 200, 100, 300],
     tag: `order-${data.orderId}`,
     renotify: true,
