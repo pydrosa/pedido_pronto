@@ -58,6 +58,7 @@ pedido-pronto/
     │   └── 001_initial.sql       # Schema completo do banco
     └── functions/
         ├── send-push/            # Envia Web Push ao cliente
+        ├── stripe-checkout/      # Cria sessão de Checkout do Stripe
         ├── stripe-webhook/       # Processa eventos do Stripe
         └── stripe-portal/        # Cria sessão do portal Stripe
 ```
@@ -140,6 +141,7 @@ supabase secrets set APP_URL=https://pedidopronto.app
 
 # Deploy das funções
 supabase functions deploy send-push
+supabase functions deploy stripe-checkout
 supabase functions deploy stripe-webhook
 supabase functions deploy stripe-portal
 ```

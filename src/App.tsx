@@ -1,19 +1,21 @@
+import { lazy, Suspense } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 
-// Pages
-import LoginPage from '@/pages/LoginPage'
-import SignupPage from '@/pages/SignupPage'
-import DashboardPage from '@/pages/DashboardPage'
-import NewOrderPage from '@/pages/NewOrderPage'
-import OrdersPage from '@/pages/OrdersPage'
-import StatsPage from '@/pages/StatsPage'
-import SettingsPage from '@/pages/SettingsPage'
+// A tela do cliente entra no bundle inicial: é a que precisa abrir rápido.
 import ClientOrderPage from '@/pages/ClientOrderPage'
-import PricingPage from '@/pages/PricingPage'
 
-// Layout
-import AppLayout from '@/components/layout/AppLayout'
+// O painel do estabelecimento é carregado sob demanda (ver src/pages/admin.ts).
+const admin = () => import('@/pages/admin')
+const LoginPage = lazy(() => admin().then((m) => ({ default: m.LoginPage })))
+const SignupPage = lazy(() => admin().then((m) => ({ default: m.SignupPage })))
+const DashboardPage = lazy(() => admin().then((m) => ({ default: m.DashboardPage })))
+const NewOrderPage = lazy(() => admin().then((m) => ({ default: m.NewOrderPage })))
+const OrdersPage = lazy(() => admin().then((m) => ({ default: m.OrdersPage })))
+const StatsPage = lazy(() => admin().then((m) => ({ default: m.StatsPage })))
+const SettingsPage = lazy(() => admin().then((m) => ({ default: m.SettingsPage })))
+const PricingPage = lazy(() => admin().then((m) => ({ default: m.PricingPage })))
+const AppLayout = lazy(() => admin().then((m) => ({ default: m.AppLayout })))
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { session, loading } = useAuth()
@@ -35,6 +37,7 @@ function LoadingScreen() {
 
 export default function App() {
   return (
+    <Suspense fallback={<LoadingScreen />}>
     <Routes>
       {/* Public routes */}
       <Route path="/login" element={<LoginPage />} />
@@ -60,5 +63,6 @@ export default function App() {
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </Suspense>
   )
 }

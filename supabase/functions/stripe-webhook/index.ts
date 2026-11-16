@@ -53,12 +53,21 @@ serve(async (req) => {
       const session = event.data.object as Stripe.Checkout.Session
       const customerId = session.customer as string
       const subscriptionId = session.subscription as string
+      const establishmentId = session.client_reference_id || session.metadata?.establishment_id
+
+      if (!establishmentId) {
+        console.error('[stripe-webhook] Checkout session sem establishment_id:', session.id)
+        break
+      }
 
       // Get plan from subscription
       const sub = await stripe.subscriptions.retrieve(subscriptionId)
       const priceId = sub.items.data[0]?.price.id
       const plan = PLAN_PRICE_MAP[priceId] ?? 'basic'
 
+      // No primeiro checkout o establishment ainda não tem stripe_customer_id
+      // salvo, então o vínculo precisa ser feito pelo id do estabelecimento
+      // (client_reference_id/metadata), não pelo customer_id do Stripe.
       await supabase
         .from('establishments')
         .update({
@@ -66,9 +75,9 @@ serve(async (req) => {
           stripe_subscription_id: subscriptionId,
           plan,
         })
-        .eq('stripe_customer_id', customerId)
+        .eq('id', establishmentId)
 
-      console.log(`[stripe-webhook] Upgraded to ${plan} for customer ${customerId}`)
+      console.log(`[stripe-webhook] Upgraded establishment ${establishmentId} to ${plan}`)
       break
     }
 

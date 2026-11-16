@@ -1,55 +1,64 @@
 /* Service Worker — Pedido Pronto
-   Handles background Web Push notifications */
+   Web Push em segundo plano + shell offline mínimo. */
 
-const CACHE_NAME = 'pedido-pronto-v2'
-const STATIC_ASSETS = ['/', '/index.html']
+const CACHE_NAME = 'pedido-pronto-v3'
+const SHELL_URL = '/index.html'
 
 // ── Install ──────────────────────────────────────────────────────────────────
-self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS))
-  )
+self.addEventListener('install', () => {
   self.skipWaiting()
 })
 
 // ── Activate ─────────────────────────────────────────────────────────────────
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
-    )
+    caches
+      .keys()
+      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))))
+      .then(() => self.clients.claim())
   )
-  self.clients.claim()
 })
 
-// ── Fetch (cache-first for static, network for API) ──────────────────────────
+// ── Fetch ────────────────────────────────────────────────────────────────────
+// Só navegações, e sempre "rede primeiro". A versão anterior servia "/" direto
+// do cache para sempre: depois de um deploy, o index.html antigo apontava para
+// arquivos JS que já não existiam e a tela ficava em branco. Agora o cache só
+// entra quando o aparelho está sem conexão.
 self.addEventListener('fetch', (event) => {
-  if (event.request.url.includes('/api/') || event.request.url.includes('supabase')) return
+  const request = event.request
+  if (request.method !== 'GET' || request.mode !== 'navigate') return
+
   event.respondWith(
-    caches.match(event.request).then((cached) => cached || fetch(event.request))
+    fetch(request)
+      .then((response) => {
+        if (response.ok) {
+          const copy = response.clone()
+          caches.open(CACHE_NAME).then((cache) => cache.put(SHELL_URL, copy))
+        }
+        return response
+      })
+      .catch(() => caches.match(SHELL_URL).then((cached) => cached || Response.error()))
   )
 })
 
 // ── Push Notification ─────────────────────────────────────────────────────────
 self.addEventListener('push', (event) => {
-  let data = { title: 'Pedido Pronto!', body: 'Seu pedido está pronto para retirada.', orderId: '' }
+  let data = { title: 'Pedido pronto!', body: 'Seu pedido está pronto para retirada.', orderId: '', url: '/' }
 
   try {
     if (event.data) data = { ...data, ...event.data.json() }
-  } catch {}
+  } catch {
+    // payload inválido: usa o texto padrão
+  }
 
   const options = {
     body: data.body,
-    icon: '/icon.svg',
-    badge: '/icon.svg',
+    icon: '/icon-192.png',
+    badge: '/icon-192.png',
     vibrate: [200, 100, 200, 100, 300],
     tag: `order-${data.orderId}`,
     renotify: true,
     requireInteraction: true,
-    actions: [
-      { action: 'view', title: 'Ver pedido' },
-      { action: 'close', title: 'Fechar' },
-    ],
     data: { orderId: data.orderId, url: data.url || '/' },
   }
 
@@ -60,20 +69,16 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
 
-  if (event.action === 'close') return
-
   const targetUrl = event.notification.data?.url || '/'
 
   event.waitUntil(
-    clients
-      .matchAll({ type: 'window', includeUncontrolled: true })
-      .then((clientList) => {
-        for (const client of clientList) {
-          if (client.url.includes(targetUrl) && 'focus' in client) {
-            return client.focus()
-          }
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        if (new URL(client.url).pathname === targetUrl && 'focus' in client) {
+          return client.focus()
         }
-        if (clients.openWindow) return clients.openWindow(targetUrl)
-      })
+      }
+      if (self.clients.openWindow) return self.clients.openWindow(targetUrl)
+    })
   )
 })

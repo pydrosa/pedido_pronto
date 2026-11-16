@@ -11,3 +11,7 @@ yarn-error.log*
 pnpm-debug.log*
 
 .vercel
+
+# Configuração local do Claude Code e backups gerados na revisão
+.claude/settings.local.json
+backup-*.zip

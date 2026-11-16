@@ -46,14 +46,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       currentUser.email?.split('@')[0] ||
       'Meu estabelecimento'
 
+    // Fallback: o gatilho on_auth_user_created já cria o estabelecimento no
+    // servidor. O navegador só envia owner_id, name e email — plano e
+    // contadores são definidos pelo banco e não são graváveis pelo cliente.
     const { data: created, error: insertError } = await supabase
       .from('establishments')
       .insert({
         owner_id: currentUser.id,
-        name: fallbackName,
+        name: fallbackName.slice(0, 80),
         email: currentUser.email ?? '',
-        plan: 'free',
-        orders_this_month: 0,
       })
       .select()
       .single()
@@ -124,16 +125,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       },
     })
 
-    if (error) return { error: error.message }
-    if (!data.user) return { error: 'Erro ao criar usuario' }
+    if (error) return { error: translateAuthError(error.message) }
+    if (!data.user) return { error: 'Não foi possível criar a conta. Tente novamente.' }
     if (!data.session) {
-      return {
-        error: 'Conta criada, mas o login imediato nao foi liberado. Verifique a confirmacao de e-mail no Supabase.',
-      }
+      // Confirmação de e-mail ligada no Supabase: a conta existe, mas só
+      // entra depois de clicar no link enviado.
+      return { error: 'Conta criada! Confirme pelo link que enviamos para o seu e-mail e depois faça login.' }
     }
 
     const currentEstablishment = await ensureEstablishment(data.user)
-    return { error: currentEstablishment ? null : 'Conta criada, mas nao foi possivel criar o estabelecimento.' }
+    return {
+      error: currentEstablishment
+        ? null
+        : 'Conta criada, mas não foi possível criar o estabelecimento. Saia e entre novamente.',
+    }
   }
 
   const signOut = async () => {
@@ -149,6 +154,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       {children}
     </AuthContext.Provider>
   )
+}
+
+// O Supabase devolve mensagens em inglês; estas são as que o dono de um
+// estabelecimento realmente vê no cadastro.
+function translateAuthError(message: string): string {
+  const m = message.toLowerCase()
+  if (m.includes('already registered') || m.includes('already been registered')) {
+    return 'Este e-mail já tem uma conta. Faça login ou recupere a senha.'
+  }
+  if (m.includes('password') && (m.includes('least') || m.includes('weak') || m.includes('short'))) {
+    return 'Senha muito fraca. Use pelo menos 6 caracteres.'
+  }
+  if (m.includes('invalid') && m.includes('email')) return 'E-mail inválido.'
+  if (m.includes('rate limit') || m.includes('too many')) {
+    return 'Muitas tentativas. Aguarde um minuto e tente de novo.'
+  }
+  if (m.includes('failed to fetch') || m.includes('network')) {
+    return 'Sem conexão. Confira sua internet e tente de novo.'
+  }
+  return 'Não foi possível criar a conta. Tente novamente.'
 }
 
 export function useAuth() {

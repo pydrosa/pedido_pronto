@@ -8,12 +8,14 @@ import { useAuth } from '@/hooks/useAuth'
 import toast from 'react-hot-toast'
 
 const NAV = [
-  { to: '/', icon: LayoutDashboard, label: 'Dashboard', end: true },
-  { to: '/novo-pedido', icon: PlusCircle, label: 'Novo pedido' },
-  { to: '/pedidos', icon: ListOrdered, label: 'Pedidos' },
-  { to: '/estatisticas', icon: BarChart2, label: 'Estatísticas' },
-  { to: '/configuracoes', icon: Settings, label: 'Configurações' },
+  { to: '/', icon: LayoutDashboard, label: 'Painel', short: 'Painel', end: true },
+  { to: '/novo-pedido', icon: PlusCircle, label: 'Novo pedido', short: 'Novo' },
+  { to: '/pedidos', icon: ListOrdered, label: 'Pedidos', short: 'Pedidos' },
+  { to: '/estatisticas', icon: BarChart2, label: 'Estatísticas', short: 'Números' },
+  { to: '/configuracoes', icon: Settings, label: 'Configurações', short: 'Ajustes' },
 ]
+
+const PLAN_LABEL: Record<string, string> = { free: 'Grátis', basic: 'Básico', pro: 'Pro' }
 
 export default function AppLayout() {
   const { establishment, signOut } = useAuth()
@@ -45,8 +47,8 @@ export default function AppLayout() {
         <p className="text-sm font-semibold text-brand-800 mt-0.5 truncate">
           {establishment?.name ?? '—'}
         </p>
-        <span className="inline-block mt-1 text-xs font-medium bg-brand-100 text-brand-700 px-2 py-0.5 rounded-full capitalize">
-          Plano {establishment?.plan ?? 'grátis'}
+        <span className="inline-block mt-1 text-xs font-medium bg-brand-100 text-brand-800 px-2 py-0.5 rounded-full">
+          Plano {PLAN_LABEL[establishment?.plan ?? 'free'] ?? 'Grátis'}
         </span>
       </div>
 
@@ -105,7 +107,7 @@ export default function AppLayout() {
           <div className="absolute left-0 top-0 bottom-0 w-72 z-50">
             <div className="h-full flex flex-col">
               <div className="flex items-center justify-end p-4 bg-white border-b border-gray-100">
-                <button onClick={() => setSidebarOpen(false)}>
+                <button onClick={() => setSidebarOpen(false)} aria-label="Fechar menu" className="p-2 -m-2">
                   <X size={20} className="text-gray-500" />
                 </button>
               </div>
@@ -119,7 +121,7 @@ export default function AppLayout() {
       <div className="flex flex-col flex-1 overflow-hidden">
         {/* Mobile header */}
         <header className="md:hidden flex items-center justify-between px-4 py-3 bg-white border-b border-gray-100">
-          <button onClick={() => setSidebarOpen(true)}>
+          <button onClick={() => setSidebarOpen(true)} aria-label="Abrir menu" className="p-2 -m-2">
             <Menu size={22} className="text-gray-600" />
           </button>
           <div className="flex items-center gap-2">
@@ -132,11 +134,47 @@ export default function AppLayout() {
         </header>
 
         {/* Page content */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-8">
+        <main className="flex-1 overflow-y-auto p-4 pb-24 md:p-8 md:pb-8">
           <div className="max-w-4xl mx-auto">
             <Outlet />
           </div>
         </main>
+
+        {/* Barra inferior no celular: tudo a um toque do polegar, sem abrir menu. */}
+        <nav
+          aria-label="Navegação principal"
+          className="md:hidden fixed bottom-0 inset-x-0 z-30 bg-white border-t border-gray-100 flex justify-around px-1 pt-1.5"
+          style={{ paddingBottom: 'max(0.375rem, env(safe-area-inset-bottom))' }}
+        >
+          {NAV.map(({ to, icon: Icon, short, end }) => {
+            const isNew = to === '/novo-pedido'
+            return (
+              <NavLink
+                key={to}
+                to={to}
+                end={end}
+                className={({ isActive }) =>
+                  `flex flex-col items-center justify-center gap-0.5 min-w-[3.5rem] px-2 py-1.5 rounded-xl text-[11px] font-medium transition-colors ${
+                    isNew
+                      ? 'text-brand-600'
+                      : isActive
+                        ? 'text-brand-700'
+                        : 'text-gray-500'
+                  }`
+                }
+              >
+                {isNew ? (
+                  <span className="w-10 h-10 -mt-5 rounded-full bg-brand-600 text-white flex items-center justify-center shadow-lg shadow-brand-200">
+                    <Icon size={22} />
+                  </span>
+                ) : (
+                  <Icon size={20} />
+                )}
+                {short}
+              </NavLink>
+            )
+          })}
+        </nav>
       </div>
     </div>
   )

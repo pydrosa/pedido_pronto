@@ -2,14 +2,30 @@
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#0F6E56" />
-    <meta name="description" content="Pedido Pronto — Notificação instantânea quando seu pedido estiver pronto" />
+    <meta name="description" content="Pedido Pronto — o celular do cliente avisa quando o pedido fica pronto. Sem pager, sem aplicativo." />
 
-    <!-- PWA manifest -->
-    <link rel="manifest" href="/manifest.json" />
-    <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+    <!-- PWA manifest
+         O painel usa /manifest.json (start_url "/"). A tela do cliente usa
+         /manifest-pedido.json, SEM start_url: assim, quando o cliente faz
+         "Adicionar à Tela de Início" no iPhone, o ícone abre no próprio
+         pedido — com start_url "/" ele caía na tela de login do lojista.
+         O link é criado por script, antes do carregamento, para o Safari já
+         ler o manifesto certo. -->
+    <script>
+      (function () {
+        var link = document.createElement('link')
+        link.rel = 'manifest'
+        link.href = location.pathname.indexOf('/pedido/') === 0 ? '/manifest-pedido.json' : '/manifest.json'
+        document.head.appendChild(link)
+      })()
+    </script>
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Pedido Pronto" />
 
     <!-- Inter font -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />

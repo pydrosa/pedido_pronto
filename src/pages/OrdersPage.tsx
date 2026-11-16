@@ -12,7 +12,7 @@ const FILTERS: { label: string; value: OrderStatus | 'all' }[] = [
 ]
 
 export default function OrdersPage() {
-  const { orders, loading, markReady, markCollected, deleteOrder } = useOrders()
+  const { orders, loading, loadingMore, hasMore, loadMore, markReady, markCollected, notifyAgain, deleteOrder } = useOrders()
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<OrderStatus | 'all'>('all')
 
@@ -89,10 +89,21 @@ export default function OrdersPage() {
               order={order}
               onMarkReady={markReady}
               onMarkCollected={markCollected}
+              onNotifyAgain={notifyAgain}
               onDelete={deleteOrder}
               showDelete
             />
           ))}
+
+          {hasMore && filter === 'all' && !search && (
+            <button
+              onClick={loadMore}
+              disabled={loadingMore}
+              className="btn-secondary w-full text-sm disabled:opacity-60"
+            >
+              {loadingMore ? 'Carregando...' : 'Carregar mais pedidos'}
+            </button>
+          )}
         </div>
       )}
     </div>

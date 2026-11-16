@@ -73,8 +73,8 @@ export function isPushSupported(): boolean {
   return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window
 }
 
-export function serializeSubscription(sub: PushSubscription): string {
-  return JSON.stringify(sub.toJSON())
+export function toSubscriptionPayload(sub: PushSubscription): PushSubscriptionJSON {
+  return sub.toJSON()
 }
 
 // Trigger vibration on the device (client-side only, no push needed)

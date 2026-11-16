@@ -2,6 +2,7 @@ import { TrendingUp, Clock, CheckCircle, AlertCircle } from 'lucide-react'
 import { useOrders } from '@/hooks/useOrders'
 import { useAuth } from '@/hooks/useAuth'
 import { PLANS } from '@/types'
+import { isToday } from '@/lib/date'
 import { formatDistanceToNow } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
@@ -11,19 +12,16 @@ export default function StatsPage() {
 
   const plan = PLANS.find((p) => p.id === establishment?.plan) ?? PLANS[0]
 
-  const today = orders.filter((o) => {
-    const d = new Date(o.created_at)
-    return d.toDateString() === new Date().toDateString()
-  })
+  const today = orders.filter((o) => isToday(o.created_at))
 
   const collected = orders.filter((o) => o.status === 'collected')
 
-  const avgWaitMs = collected
-    .filter((o) => o.ready_at)
-    .reduce((sum, o) => {
-      const diff = new Date(o.ready_at!).getTime() - new Date(o.created_at).getTime()
-      return sum + diff
-    }, 0) / (collected.length || 1)
+  // Tempo de preparo = criado -> pronto, sobre todo pedido que já ficou pronto.
+  const prepared = orders.filter((o) => o.ready_at)
+  const avgWaitMs = prepared.reduce((sum, o) => {
+    const diff = new Date(o.ready_at!).getTime() - new Date(o.created_at).getTime()
+    return sum + diff
+  }, 0) / (prepared.length || 1)
 
   const avgMinutes = Math.round(avgWaitMs / 60000)
 
@@ -32,7 +30,7 @@ export default function StatsPage() {
 
   const metrics = [
     { label: 'Pedidos hoje', value: today.length, icon: TrendingUp, color: 'text-blue-500', bg: 'bg-blue-50' },
-    { label: 'Tempo médio (min)', value: avgMinutes || '—', icon: Clock, color: 'text-amber-500', bg: 'bg-amber-50' },
+    { label: 'Preparo médio (min)', value: prepared.length ? Math.max(1, avgMinutes) : '—', icon: Clock, color: 'text-amber-500', bg: 'bg-amber-50' },
     { label: 'Retirados', value: collected.length, icon: CheckCircle, color: 'text-brand-600', bg: 'bg-brand-50' },
     { label: 'Taxa de notificação', value: `${notifRate}%`, icon: AlertCircle, color: 'text-purple-500', bg: 'bg-purple-50' },
   ]

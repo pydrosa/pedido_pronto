@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { User, Bell, CreditCard, Shield, ChevronRight, ExternalLink } from 'lucide-react'
+import { User, Bell, CreditCard, Shield, ExternalLink } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { supabase } from '@/lib/supabase'
 import { PLANS } from '@/types'
@@ -9,6 +9,7 @@ export default function SettingsPage() {
   const { establishment, refreshEstablishment } = useAuth()
   const [name, setName] = useState(establishment?.name ?? '')
   const [saving, setSaving] = useState(false)
+  const [portalLoading, setPortalLoading] = useState(false)
 
   const plan = PLANS.find((p) => p.id === establishment?.plan) ?? PLANS[0]
 
@@ -28,10 +29,16 @@ export default function SettingsPage() {
   }
 
   const openStripePortal = async () => {
-    toast('Redirecionando para o portal de assinatura...', { icon: '🔗' })
-    // In production: call your Edge Function to create a Stripe portal session
-    // const { data } = await supabase.functions.invoke('stripe-portal')
-    // window.location.href = data.url
+    setPortalLoading(true)
+    const { data, error } = await supabase.functions.invoke('stripe-portal')
+    setPortalLoading(false)
+
+    if (error || !data?.url) {
+      toast.error('Erro ao abrir o portal de assinatura')
+      return
+    }
+
+    window.location.href = data.url
   }
 
   const sections = [
@@ -104,9 +111,13 @@ export default function SettingsPage() {
           )}
 
           {establishment?.stripe_subscription_id && (
-            <button onClick={openStripePortal} className="btn-secondary w-full text-sm">
+            <button
+              onClick={openStripePortal}
+              disabled={portalLoading}
+              className="btn-secondary w-full text-sm disabled:opacity-60"
+            >
               <ExternalLink size={15} />
-              Gerenciar assinatura no Stripe
+              {portalLoading ? 'Abrindo portal...' : 'Gerenciar assinatura no Stripe'}
             </button>
           )}
         </div>

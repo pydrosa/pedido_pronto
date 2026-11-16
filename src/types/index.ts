@@ -21,11 +21,28 @@ export interface Order {
   order_number: string
   customer_name: string
   status: OrderStatus
-  push_subscription: string | null  // JSON serialized PushSubscription
+  push_subscription: PushSubscriptionJSON | null
   notified_at: string | null
   created_at: string
   ready_at: string | null
   collected_at: string | null
+}
+
+// O que a RPC pública get_order_public devolve para a tela do cliente.
+// push_subscription só existe no retorno do banco antigo (antes da migration
+// 20261116000000); o banco novo devolve push_enabled.
+export interface PublicOrder {
+  id: string
+  order_number: string
+  customer_name: string
+  status: OrderStatus
+  created_at: string
+  ready_at: string | null
+  collected_at: string | null
+  push_enabled?: boolean
+  push_subscription?: unknown
+  establishment_name?: string | null
+  orders_ahead?: number | null
 }
 
 // ─── UI / App types ───────────────────────────────────────────────────────────

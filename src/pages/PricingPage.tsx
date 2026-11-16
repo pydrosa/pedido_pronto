@@ -1,7 +1,10 @@
-import { Check, X, Bell } from 'lucide-react'
-import { Link } from 'react-router-dom'
-import { PLANS } from '@/types'
+import { useState } from 'react'
+import { Check, X, Bell, Loader2 } from 'lucide-react'
+import { Link, useNavigate } from 'react-router-dom'
+import { PLANS, Plan } from '@/types'
 import { useAuth } from '@/hooks/useAuth'
+import { supabase } from '@/lib/supabase'
+import toast from 'react-hot-toast'
 
 const FEATURES = [
   { key: 'orders', label: 'Pedidos/mês' },
@@ -20,6 +23,28 @@ const PLAN_FEATURES: Record<string, Record<string, string | boolean>> = {
 
 export default function PricingPage() {
   const { establishment } = useAuth()
+  const navigate = useNavigate()
+  const [checkoutLoading, setCheckoutLoading] = useState<Plan | null>(null)
+
+  const handleSubscribe = async (planId: Plan) => {
+    if (!establishment) {
+      navigate('/cadastro')
+      return
+    }
+
+    setCheckoutLoading(planId)
+    const { data, error } = await supabase.functions.invoke('stripe-checkout', {
+      body: { plan: planId },
+    })
+    setCheckoutLoading(null)
+
+    if (error || !data?.url) {
+      toast.error('Erro ao iniciar assinatura. Tente novamente.')
+      return
+    }
+
+    window.location.href = data.url
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 px-4 py-12">
@@ -95,16 +120,27 @@ export default function PricingPage() {
                     Plano atual
                   </div>
                 ) : (
-                  <Link
-                    to={plan.price === 0 ? '/cadastro' : `/checkout/${plan.id}`}
-                    className={`w-full py-3 rounded-xl text-sm font-medium text-center transition-colors ${
-                      isPopular
-                        ? 'bg-brand-600 hover:bg-brand-800 text-white'
-                        : 'bg-gray-900 hover:bg-gray-700 text-white'
-                    }`}
-                  >
-                    {plan.price === 0 ? 'Começar grátis' : `Assinar ${plan.name}`}
-                  </Link>
+                  plan.price === 0 ? (
+                    <Link
+                      to="/cadastro"
+                      className="w-full py-3 rounded-xl text-sm font-medium text-center transition-colors bg-gray-900 hover:bg-gray-700 text-white"
+                    >
+                      Começar grátis
+                    </Link>
+                  ) : (
+                    <button
+                      onClick={() => handleSubscribe(plan.id)}
+                      disabled={checkoutLoading !== null}
+                      className={`w-full py-3 rounded-xl text-sm font-medium text-center transition-colors disabled:opacity-60 flex items-center justify-center gap-2 ${
+                        isPopular
+                          ? 'bg-brand-600 hover:bg-brand-800 text-white'
+                          : 'bg-gray-900 hover:bg-gray-700 text-white'
+                      }`}
+                    >
+                      {checkoutLoading === plan.id && <Loader2 size={15} className="animate-spin" />}
+                      {checkoutLoading === plan.id ? 'Redirecionando...' : `Assinar ${plan.name}`}
+                    </button>
+                  )
                 )}
               </div>
             )
